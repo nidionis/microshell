@@ -22,7 +22,7 @@ void print_cmd(char **argv) {
     print_tab(argv);
 }
 
-bool set_next_cmd(char **argv, char **envp, char ***next_cmd) {
+bool set_next_cmd(char **argv, char ***next_cmd) {
     int i = 0;
     int is_pipe = 0;
     *next_cmd = NULL;
@@ -41,66 +41,56 @@ bool set_next_cmd(char **argv, char **envp, char ***next_cmd) {
     return (is_pipe);
 }
 
-void exec_cmd(int in_fd, int out_fd, char **argv, char **envp) {
+void redirect_io(int dup_fds[2]) {
+    dup2(dup_fds[IN], 0);
+    close(dup_fds[IN]);
+    dup2(dup_fds[OUT], 1);
+    close(dup_fds[OUT]);
+}
+
+void exec_cmd(int fd[2], char **argv, char **envp) {
+    int dup_fds[2];
+    dup_fds[OUT] = dup(fd[OUT]);
+    dup_fds[IN] = dup(fd[IN]);
     pid_t pid = fork();
     if (pid == 0) {
-        // Child process
-        if (in_fd != 0) {
-            dup2(in_fd, 0);
-            close(in_fd);
-        }
-        if (out_fd != 1) {
-            dup2(out_fd, 1);
-            close(out_fd);
-        }
+        redirect_io(dup_fds);
         execve(*argv, argv, envp);
-        perror("fatal : execve");
-        exit(1);
-    } else if (pid < 0) {
-        perror("fork");
-        exit(1);
     } else {
-        // Parent process
-        if (in_fd != 0) {
-            close(in_fd); // Close the read end in the parent
-        }
-        if (out_fd != 1) {
-            close(out_fd); // Close the write end in the parent
-        }
         wait(NULL); // Wait for the child to complete
     }
+    close(dup_fds[IN]); // Close the read end in the parent
+    close(dup_fds[OUT]); // Close the write end in the parent
+}
+
+void pipe_exec(int *in_fd, char **argv, char **envp) {
+    int fd[2];
+
+    pipe(fd);
+    dup2(fd[IN], *in_fd);
+    close(*in_fd);
+    exec_cmd(fd, argv, envp);
+    close(fd[OUT]);
+    *in_fd = fd[IN];
 }
 
 int main(int argc, char** argv, char **envp) {
-    int fd[2];
+    (void)argc;
     char **next_cmd;
     int is_pipe = FALSE;
-    int in_fd = 0; // Start with standard input
+    int fds[2];
 
     argv = &argv[1];
-    while (argv) {
-        is_pipe = set_next_cmd(argv, envp, &next_cmd);
-
+    fds[IN] = dup(0);
+    fds[OUT] = dup(1);
+    while (argv && *argv) {
+        is_pipe = set_next_cmd(argv, &next_cmd);
         if (is_pipe) {
-            if (pipe(fd) == -1) {
-                perror("pipe");
-                exit(1);
-            }
-            exec_cmd(in_fd, fd[OUT], argv, envp);
-            close(fd[OUT]); // Parent closes write end
-            if (in_fd != 0) {
-                close(in_fd);
-            }
-            in_fd = fd[IN]; // Next command reads from pipe
+            pipe_exec(&fds[IN], argv, envp);
         } else {
-            exec_cmd(in_fd, 1, argv, envp);
-            if (in_fd != 0) {
-                close(in_fd);
-            }
-            in_fd = 0; // Reset to standard input
+            exec_cmd(fds, argv, envp);
         }
         argv = next_cmd;
     }
     return (0);
 }
-
