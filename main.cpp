@@ -48,16 +48,28 @@ void redirect_io(int dup_fds[2]) {
     close(dup_fds[OUT]);
 }
 
+void exec_cd(char **argv) {
+    if (chdir(argv[1]) == -1) {
+        perror("cd");
+    }
+}
+
 void exec_cmd(int fd[2], char **argv, char **envp) {
     int dup_fds[2];
     dup_fds[OUT] = dup(fd[OUT]);
     dup_fds[IN] = dup(fd[IN]);
-    pid_t pid = fork();
-    if (pid == 0) {
-        redirect_io(dup_fds);
-        execve(*argv, argv, envp);
-    } else {
-        wait(NULL); // Wait for the child to complete
+    if (argv[0]) {
+        if (!strncmp(argv[0], "cd", 3))
+            exec_cd(argv);
+    }
+    else {
+        pid_t pid = fork();
+        if (pid == 0) {
+            redirect_io(dup_fds);
+            execve(*argv, argv, envp);
+        } else {
+            wait(NULL); // Wait for the child to complete
+        }
     }
     close(dup_fds[IN]); // Close the read end in the parent
     close(dup_fds[OUT]); // Close the write end in the parent
