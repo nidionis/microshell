@@ -1,36 +1,24 @@
 /* ************************************************************************** */
 /*                                                                            */
 /*                                                        :::      ::::::::   */
-/*   vect.c                                             :+:      :+:    :+:   */
+/*   main.c                                             :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
 /*   By: nidionis <marvin@42.fr>                    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/04 16:20:59 by nidionis          #+#    #+#             */
-/*   Updated: 2025/12/14 13:07:57 by nidionis         ###   ########.fr       */
+/*   Updated: 2025/12/14 13:12:38 by nidionis         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include <unistd.h>
 #include "vect.h"
 
-vect::vect(int a, int b) {
-	this->a = a;
-	this->b = b;
+int	main(int argc, char **argv)
+{
+	vect a(1,2);
+	vect b(2,2);
+	vect c = a + b;
+	std::cout << c;
+	return (0);
 }
 
-vect::vect() {
-	*this = vect(0,0);
-}
-
-vect vect::operator+(const vect &y) {
-	vect z;
-	z.a = a + y.a;
-	z.b = b + y.b;
-	return z;
-}
-
-std::ostream &operator<<(std::ostream &os, vect &x) {
-	os << x.a << " ";
-	os << x.b << "\n";
-	return os;
-}
